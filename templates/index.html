@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>{{ .title }}</title>
+    <link rel="stylesheet" type="text/css" href="/public/css/main.css" />
+    <link rel="stylesheet" type="text/css" href="/public/css/grid.css">
+</head>
+
+<body>
+    <div class="icon-grid">
+
+        {{range .Pictures}}
+        <img src="{{ .Path }}" alt="{{ .Name }}" data-width="{{ .Width }}" data-height="{{ .Height }}"
+            {{ .Width .Height | widthOrHeight }}="200px" class="item item-icon"
+            onClick="openPic('{{ .Path }}', '{{ .Name }}', {{ .Width }}, {{ .Height }})">
+        {{end}}
+
+    </div>
+
+    <script>
+        function openPic(path, name, width, height) {
+            const strWindowFeatures =
+                `menubar=no,toolbar=no,location=no,resizable=yes,scrollbars=yes,status=no,height=${height+5},width=${width+5}`
+            windowObjRef = window.open(path, name, strWindowFeatures)
+        }
+    </script>
+
+</body>
+
+</html>

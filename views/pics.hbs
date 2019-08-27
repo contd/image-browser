@@ -1,0 +1,10 @@
+<div id="zoomwall" class="zoomwall">
+  {{#each pics}}
+    <img 
+      src="{{rewrite path}}/{{name}}" 
+      alt="{{name}}" 
+      data-width="{{dims.width}}" 
+      data-height="{{dims.height}}"
+      data-highres="{{rewrite path}}/{{name}}">
+  {{/each}}
+</div>
