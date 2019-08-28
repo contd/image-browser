@@ -5,17 +5,24 @@ import (
 	"html/template"
 	"image"
 	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
 	"log"
 	"math/rand"
+	"mime"
 	"net/http"
 	"os"
 	"path"
+	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	s "strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/rwcarlsen/goexif/exif"
+	"github.com/rwcarlsen/goexif/mknote"
 )
 
 // Directory struct is for directory objects
@@ -26,14 +33,22 @@ type Directory struct {
 	Path    string    `json:"path"`
 }
 
+// Exif picture data struct
+type Exif struct {
+	Lat  float64 `json:"lat"`
+	Long float64 `json:"long"`
+}
+
 // Picture struct is for picture objects
 type Picture struct {
 	Name    string    `json:"name"`
 	Size    int64     `json:"size"`
+	Type    string    `json:"type"`
 	ModTime time.Time `json:"modified"`
 	Path    string    `json:"path"`
 	Width   int       `json:"width"`
 	Height  int       `json:"height"`
+	Exif    Exif      `json:"exif"`
 }
 
 // Files struct stores the current directory's contents in separate arrays of directores or pictures
@@ -63,11 +78,7 @@ func main() {
 	router.SetFuncMap(template.FuncMap{
 		"widthOrHeight": widthOrHeight,
 	})
-	router.LoadHTMLFiles("templates/index.html")
-	router.Static("/public", "./public")
 	router.Static("/collections", "./collections")
-	router.StaticFile("/favicon.ico", "./public/favicon.ico")
-	router.GET("/", showIndex)
 	router.GET("/api", listRoot)
 	router.Run(":6969")
 }
@@ -75,15 +86,8 @@ func main() {
 func widthOrHeight(w int, h int) string {
 	if w > h {
 		return "width"
-	} else {
-		return "height"
 	}
-}
-
-func showIndex(c *gin.Context) {
-	c.HTML(http.StatusOK, "index.html", gin.H{
-		"title": "Photo Serve",
-	})
+	return "height"
 }
 
 func listRoot(c *gin.Context) {
@@ -121,10 +125,12 @@ func readPath(fullPath string) ([]Directory, []Picture) {
 		log.Fatalf("failed to open dir: %s", err)
 	}
 	defer dir.Close()
-	// take fullPath and remove os.Getwd() to make relPath
-	relPath := s.Replace(fullPath, RootPath, "", 1)
 
-	items, _ := dir.Readdir(0)
+	relPath := s.Replace(fullPath, RootPath, "", 1)
+	items, err := dir.Readdir(0)
+	if err != nil {
+		log.Fatalf("failed to read dir: %s", err)
+	}
 
 	var dirs []Directory
 	var pics []Picture
@@ -146,17 +152,22 @@ func readPath(fullPath string) ([]Directory, []Picture) {
 				if err != nil {
 					log.Fatalf("failed to open pic: %v", item.Name())
 				}
+
+				mimeType := getMimeType(item.Name())
 				image, _, err := image.DecodeConfig(pic)
 				if err != nil {
 					log.Fatalf("%s: %v", item.Name(), err)
 				}
+
 				picture := Picture{
 					Name:    item.Name(),
 					Size:    item.Size(),
+					Type:    mimeType,
 					ModTime: item.ModTime(),
 					Path:    fmt.Sprintf("http://localhost:6969/collections%s", path.Join(relPath, item.Name())),
 					Width:   image.Width,
 					Height:  image.Height,
+					Exif:    getExif(path.Join(fullPath, item.Name())),
 				}
 				pics = append(pics, picture)
 			}
@@ -195,9 +206,36 @@ func randPics(n int) []Picture {
 }
 
 func checkExtension(fname string) bool {
-	if path.Ext(fname) == ".gif" || path.Ext(fname) == ".GIF" {
+	re := regexp.MustCompile(`.*\.(?:jpg|gif|png|tif)$`)
+	if re.MatchString(fname) {
 		return true
-	} else {
-		return false
+	}
+	return false
+}
+
+func getMimeType(fname string) string {
+	extn := filepath.Ext(fname)
+	mtype := mime.TypeByExtension(extn)
+	return mtype
+}
+
+func getExif(fname string) Exif {
+	exif.RegisterParsers(mknote.All...)
+
+	f, err := os.Open(fname)
+	if err != nil {
+		log.Fatalf("Failed to open for exif [%s]: %v", fname, err)
+	}
+
+	x, err := exif.Decode(f)
+	if err != nil {
+		log.Fatalf("Failed to decode exif [%s]: %v", fname, err)
+	}
+
+	lat, long, _ := x.LatLong()
+
+	return Exif{
+		Lat:  lat,
+		Long: long,
 	}
 }
