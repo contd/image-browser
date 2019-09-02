@@ -1,0 +1,39 @@
+.moveable-control {
+  position: absolute;
+  width: 14px !important;
+  height: 14px !important;
+  border-radius: 50% !important;
+  border: 2px solid rgba(255, 255, 255, 0) !important;
+  box-sizing: border-box !important;
+  background: rgba(255, 255, 255, 0) !important;
+  margin-top: -7px !important;
+  margin-left: -7px !important;
+  z-index: 10 !important;
+}
+
+.moveable-control-box {
+  z-index: 0 !important;
+}
+
+.moveable-line {
+  position: absolute !important;
+  height: 1px !important;
+  width: 1px !important;
+  background: rgb(10, 138, 243) !important;
+  transform-origin: 0px 0.5px !important;
+}
+
+.moveable-control.moveable-origin {
+  border-color: rgba(255, 255, 255, 0) !important;
+  background: rgba(255, 255, 255, 0) !important;
+  width: 12px !important;
+  height: 12px !important;
+  margin-top: -6px !important;
+  margin-left: -6px !important;
+  pointer-events: none !important;
+}
+
+.moveable-control-box:hover .moveable-control {
+  border: 2px solid #fff !important;
+  background: #4af !important;
+}

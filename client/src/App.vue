@@ -1,120 +1,143 @@
 <template>
-  <div id="app" class="icon-grid">
-    <div v-if="loading">Loading...</div>
-    <div v-else>
-      <PictureIcon v-for="file in files" :key="file.name"
-        path="file.path"
-        name="file.name"
-        width="file.width"
-        height="file.height"
-      ></PictureIcon>
-    </div>
+  <div>
+    <NavBar></NavBar>
+    <b-container fluid>
+      <b-row>
+        <b-col>
+          <button
+            v-if="!inRoot"
+            class="item ffolder small gray"
+            data-path="/api"
+            alt="Go up/back one directory"
+            v-on:click="goUpOneDir"
+          >
+            <span>..</span>
+          </button>
+          <button
+            class="item ffolder small cyan"
+            v-for="directory in directories"
+            :key="directory.name"
+            :data-path="directory.path"
+            :data-name="directory.name"
+            :data-size="directory.size"
+            :data-modified="directory.modified"
+            @click="() => changeDir(directory.path)"
+          >
+            <span class="truncate">{{ directory.name }}</span>
+          </button>
+        </b-col>
+      </b-row>
+      <b-row>
+        <b-col class="pictures">
+          <PictureIcon
+            v-for="(picture, index) in pictures"
+            :key="index"
+            :name="picture.name"
+            :path="picture.path"
+            :size="picture.size"
+            :type="picture.type"
+            :modified="picture.modified"
+            :width="picture.width"
+            :height="picture.height"
+            :lat="picture.exif.lat"
+            :long="picture.exif.long"
+          ></PictureIcon>
+        </b-col>
+      </b-row>
+    </b-container>
   </div>
 </template>
 
 <script>
-import axios from 'axios'
-import PictureIcon from './components/PictureIcon'
+import NavBar from '@/components/NavBar'
+import PictureIcon from '@/components/PictureIcon'
 
 export default {
-  name: 'app',
+  name: "app",
   components: {
+    NavBar,
     PictureIcon
   },
   data() {
     return {
-      files: null,
+      pictures: [],
+      directories: [],
+      picsArray: [],
+      currPath: "",
+      inRoot: true,
+      visible: false,
       loading: true,
       errored: false
     }
   },
   mounted() {
-    axios
-      .get('http://localhost:6969/')
+    this.$axios
+      .get(this.$BASEURL)
       .then(resp => {
-        this.files = resp.data
+        this.pictures = resp.data.Pictures
+        this.directories = resp.data.Directories
+        this.picsArray = resp.data.Pictures
+          ? resp.data.Pictures.map(pic => pic.path)
+          : []
       })
       .catch(err => {
         console.log(`ERROR: ${err}`)
         this.errored = true
       })
-      .finally(() => this.loading = false)
+      .finally(() => (this.loading = false))
+  },
+  methods: {
+    changeDir(path) {
+      if (path.match(/\?path=/)) {
+        this.inRoot = false
+      } else {
+        this.inRoot = true
+      }
+      this.currPath = path
+      this.$axios
+        .get(path)
+        .then(resp => {
+          this.pictures = resp.data.Pictures
+          this.directories = resp.data.Directories
+          this.picsArray = resp.data.Pictures
+            ? resp.data.Pictures.map(pic => pic.path)
+            : []
+        })
+        .catch(err => {
+          console.log(`ERROR: ${err}`)
+          this.errored = true
+        })
+        .finally(() => (this.loading = false))
+    },
+    goUpOneDir() {
+      const pathStr = this.currPath.split("?")[1]
+        ? this.currPath.split("?")[1]
+        : ""
+      let newPath = ""
+      let path = pathStr.replace(/path=/, "").split("/")
+      if (path.length > 1) {
+        path.pop()
+        newPath = `${this.$BASEURL}?path=${path.join("/")}`
+      } else {
+        newPath = `${this.$BASEURL}`
+      }
+      this.changeDir(newPath)
+    }
   }
 }
 </script>
 
-<style>
-#app {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+<style lang="css">
+.truncate {
+  width: 50px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-
-ul {
-	padding: 1em;
-	margin: 1em;
-}
-
-li {
-	padding: 1em;
-	margin: 1em;
-	justify-content: center;
-	text-align: center;
-	display: inline-flex;
-	font-size: 2em;
-	font-weight: 500;
-}
-
-.icon-grid {
-    display: flexbox;
-    margin: 0;
-    padding: 0;
-}
-
-.item {
-    margin: 1px;
-    padding: 0;
-}
-
-.item-icon {
-    justify-content: center;
-	text-align: center;
-	display: inline-flex;
-}
-
-.zoomwall {
-	font-size: 0;
-	overflow: hidden;
-	margin: 0;
-	padding: 0;
-}
-
-.zoomwall img {
-	height: 15vw;
-	opacity: 1;
-	vertical-align: top;
-	
-	transform-origin: 0% 0%;
-	transition-property: transform, opacity;
-	transition-duration: 0.3s;
-	transition-timing-function: ease-out;
-
-	-webkit-transform-origin: 0% 0%;
-	-webkit-transition-property: transform, opacity;
-	-webkit-transition-duration: 0.3s;
-	-webkit-transition-timing-function: ease-out;
-}
-
-.zoomwall.lightbox img {
-	transition-timing-function: ease-in;
-	-webkit-transition-timing-function: ease-in;
-}
-
-.zoomwall.lightbox img {
-	opacity: 0.3;
-}
-
-.zoomwall.lightbox img.active {
-	opacity: 1;
+.truncate:hover {
+  width: 100px;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
 }
 </style>

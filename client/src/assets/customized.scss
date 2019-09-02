@@ -1,0 +1,60 @@
+@import 'node_modules/bootstrap/scss/bootstrap';
+@import 'node_modules/bootstrap-vue/src/index.scss';
+@import 'ffolders';
+@import 'fileicon';
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+#app {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.wrapper {
+  padding: 0;
+  margin: 0;
+}
+
+.icon-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: auto auto;
+  margin: 0;
+  padding: 0;
+}
+
+.dir-grid {
+  display: flex;
+  flex-wrap: wrap;
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.pic-grid {
+  display: flex;
+  flex-wrap: wrap;
+  grid-column: 1;
+  grid-row: 2;
+  min-height: 100%;
+}
+
+.item {
+  margin: 0.5em;
+  padding: 0;
+  display: inline-flex;
+  flex-grow: 0;
+}
+
+.item-icon {
+  justify-content: center;
+  text-align: center;
+  display: inline-flex;
+}
+
+@import 'movable';
+//@import 'zoomwall';

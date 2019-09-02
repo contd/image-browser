@@ -1,5 +1,4 @@
-var zoomwall = {
-
+const zoomwall = {
   create: function(blocks, enableKeys) {
     zoomwall.resize(blocks.children);
 
@@ -361,3 +360,5 @@ var zoomwall = {
     }
   }
 };
+
+export default zoomwall;

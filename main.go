@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"html/template"
 	"image"
 	_ "image/gif"
 	_ "image/jpeg"
@@ -20,7 +19,8 @@ import (
 	s "strings"
 	"time"
 
-	"github.com/gin-gonic/gin"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"github.com/rwcarlsen/goexif/exif"
 	"github.com/rwcarlsen/goexif/mknote"
 )
@@ -66,35 +66,47 @@ var Directories []Directory
 // Pictures is an array of Picture objects in current path
 var Pictures []Picture
 
+// CollectionPath is the name of the link to the collection being served
+var CollectionPath = "collections"
+
+// PageLimit is the number of items per page
+var PageLimit = 10
+
+// OriginsAllowed is for CORS and should leave the localhost there
+var OriginsAllowed = []string{"*"}
+
 func main() {
 	root, err := os.Getwd()
 	if err != nil {
 		log.Fatalf("failed to get working dir: %s", err)
 	}
-	RootPath = path.Join(root, "collections")
+	RootPath = path.Join(root, CollectionPath)
 	Directories, Pictures = readPath(RootPath)
 
-	router := gin.Default()
-	router.SetFuncMap(template.FuncMap{
-		"widthOrHeight": widthOrHeight,
-	})
+	router := echo.New()
+	router.Use(middleware.Logger())
+	router.Use(middleware.Recover())
+	// CORS restricted
+	// Allows requests from any `https://kumpf.io` or `http://localhost:*` origin
+	// wth GET, PUT, POST or DELETE method.
+	router.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins: OriginsAllowed,
+		AllowMethods: []string{http.MethodGet, http.MethodPut, http.MethodPost, http.MethodDelete},
+	}))
 	router.Static("/collections", "./collections")
+	router.Static("/", "./public")
 	router.GET("/api", listRoot)
-	router.Run(":6969")
+	router.Logger.Fatal(router.Start(":6969"))
 }
 
-func widthOrHeight(w int, h int) string {
-	if w > h {
-		return "width"
+func listRoot(c echo.Context) error {
+	pathParam := c.QueryParam("path")
+	pageParam, _ := strconv.Atoi(c.QueryParam("page"))
+	if pageParam == 0 {
+		pageParam = 1
 	}
-	return "height"
-}
-
-func listRoot(c *gin.Context) {
-	pathParam := c.DefaultQuery("path", "")
-	pageParam, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	files := getFiles(pathParam, pageParam)
-	c.JSON(http.StatusOK, files)
+	return c.JSON(http.StatusOK, files)
 }
 
 func getFiles(pathParam string, pageParam int) Files {
@@ -110,7 +122,7 @@ func getFiles(pathParam string, pageParam int) Files {
 		return Pictures[i].Name < Pictures[j].Name
 	})
 	// Limit (Paging)
-	Pictures = limitPics(pageParam, 5)
+	Pictures = limitPics(pageParam, PageLimit)
 
 	files := Files{
 		Directories: Directories,
@@ -159,6 +171,10 @@ func readPath(fullPath string) ([]Directory, []Picture) {
 					log.Fatalf("%s: %v", item.Name(), err)
 				}
 
+				exifInfo, exifErr := getExif(path.Join(fullPath, item.Name()))
+				if exifErr != nil {
+					exifInfo = Exif{Lat: 0, Long: 0}
+				}
 				picture := Picture{
 					Name:    item.Name(),
 					Size:    item.Size(),
@@ -167,7 +183,7 @@ func readPath(fullPath string) ([]Directory, []Picture) {
 					Path:    fmt.Sprintf("http://localhost:6969/collections%s", path.Join(relPath, item.Name())),
 					Width:   image.Width,
 					Height:  image.Height,
-					Exif:    getExif(path.Join(fullPath, item.Name())),
+					Exif:    exifInfo,
 				}
 				pics = append(pics, picture)
 			}
@@ -205,6 +221,13 @@ func randPics(n int) []Picture {
 	return randPics
 }
 
+func widthOrHeight(w int, h int) string {
+	if w > h {
+		return "width"
+	}
+	return "height"
+}
+
 func checkExtension(fname string) bool {
 	re := regexp.MustCompile(`.*\.(?:jpg|gif|png|tif)$`)
 	if re.MatchString(fname) {
@@ -219,17 +242,19 @@ func getMimeType(fname string) string {
 	return mtype
 }
 
-func getExif(fname string) Exif {
+func getExif(fname string) (Exif, error) {
 	exif.RegisterParsers(mknote.All...)
 
 	f, err := os.Open(fname)
 	if err != nil {
-		log.Fatalf("Failed to open for exif [%s]: %v", fname, err)
+		log.Printf("Failed to open for exif [%s]: %v", fname, err)
+		return Exif{}, err
 	}
 
 	x, err := exif.Decode(f)
 	if err != nil {
-		log.Fatalf("Failed to decode exif [%s]: %v", fname, err)
+		log.Printf("Failed to decode exif [%s]: %v", fname, err)
+		return Exif{}, err
 	}
 
 	lat, long, _ := x.LatLong()
@@ -237,5 +262,5 @@ func getExif(fname string) Exif {
 	return Exif{
 		Lat:  lat,
 		Long: long,
-	}
+	}, nil
 }
